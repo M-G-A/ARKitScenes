@@ -5,7 +5,7 @@ import json
 import numpy as np
 import os
 
-from .box_utils import compute_box_3d, boxes_to_corners_3d, get_size
+from .box_utils import compute_box_3d, boxes_to_corners_3d, get_size, points_in_boxes
 from .rotation import convert_angle_axis_to_matrix3
 from .taxonomy import class_names, ARKitDatasetConfig
 
@@ -186,7 +186,23 @@ def extract_gt(gt_fn):
     boxes_corners = np.concatenate(boxes_corners, axis=0)
     return skipped, boxes_corners, centers, sizes, labels, uids
 
-
+def masks_from_BB(pcd, indices, corners, shape):
+    """ generate object-masks for 2D Training purposes """
+    """
+        Args: 
+            pcd: pointcloud
+            indices: x & y coordinate of the point clouds when projected on the image
+            corners: corners describing the 3D boxes
+            shape: describing the image size
+    """
+    masks = []
+    points_inside = points_in_boxes(pcd, corners)
+    for i,obj in enumerate(points_inside.T):
+        mask = np.zeros(shape)
+        mask[indices[1][obj],indices[0][obj]] = 1
+        masks.append(mask)
+   return masks
+        
 class TenFpsDataLoader(object):
     def __init__(
         self,
@@ -199,6 +215,7 @@ class TenFpsDataLoader(object):
         with_color_image=True,
         subsample=2,
         world_coordinate=True,
+        generate_masks=False
     ):
         """
         Args:
@@ -361,4 +378,10 @@ class TenFpsDataLoader(object):
         frame["pcd"] = pcd
         frame["color"] = rgb_feat
         frame["indices"] = indices
+        
+        
+        if generate_masks:
+            """ only works if point cloud is generated in world coordinates - otherwise transformation has to be applied first """
+            masks = masks_from_BB(pcd, indices, self.gt_corners, frame['depth'].shape)
+            frame["masks"] = masks
         return frame
