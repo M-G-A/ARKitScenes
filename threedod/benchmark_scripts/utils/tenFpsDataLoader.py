@@ -99,7 +99,7 @@ def generate_point(
 
     rgb_feat = rgb_image[v, u][d_filter]
 
-    return new_points_3d.T, rgb_feat
+    return new_points_3d.T, rgb_feat, (u[d_filter],v[d_filter])
 
 
 def extract_gt(gt_fn):
@@ -349,7 +349,7 @@ class TenFpsDataLoader(object):
         depth_image = frame["depth"] / 1000.0
         rgb_image = frame["image"] / 255.0
 
-        pcd, rgb_feat = generate_point(
+        pcd, rgb_feat, indices = generate_point(
             rgb_image,
             depth_image,
             frame["intrinsics"],
@@ -360,4 +360,5 @@ class TenFpsDataLoader(object):
 
         frame["pcd"] = pcd
         frame["color"] = rgb_feat
+        frame["indices"] = indices
         return frame
